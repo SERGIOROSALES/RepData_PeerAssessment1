@@ -1,0 +1,136 @@
+---
+title: "week2Project"
+author: "Sergio Rosales"
+date: "December 2, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **1. Loading and preprocessing the data**
+
+Next piece of code read the data from a .csv file. Date is also Processed/transformed into a format suitable for your analysis:
+
+```{r read data, echo=TRUE}
+rutaF <- file.path(getwd(),"/activity.csv")
+AMD <- read.csv(rutaF, header = TRUE, na.strings = "NA", colClasses= c("integer","Date","integer"), stringsAsFactors= FALSE)
+```
+
+## **2. What is mean total number of steps taken per day?**
+### 2.1 Calculate the total number of steps taken per day 
+
+The total number of steps taken per day is saved in varable "TSPD"
+
+```{r Total steps per day, echo=TRUE}
+TSPD <- aggregate(steps~date,data= AMD,FUN= sum)
+```
+### 2.2 Make a histogram of the total number of steps taken each day
+
+```{r histogram, fig.height= 4}
+with(TSPD,hist(steps,
+	main= "Histogram for Total Steps per day",
+	xlab= "Total # Steps/day",
+	border= "blue",
+	col= "green",
+	breaks= 5))
+```
+
+### 2.3 Calculate and report the mean and median of the total number of steps taken per day
+
+```{r mean & Median, echo=TRUE, fig.height= 4}
+meanTSPD <- mean(TSPD$steps,na.rm = TRUE)
+medianTSPD <- median(TSPD$steps,na.rm = TRUE)
+```
+
+The mean of the total number of steps taken per day is `r meanTSPD` and the median o of the total number of steps taken per day is `r medianTSPD`.
+
+## **3. What is the average daily activity pattern?**
+### 3.1 Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r Average Daily Activity, echo=TRUE, fig.height= 4}
+ADSPI <- aggregate(steps~interval,data= AMD,FUN= mean)
+with(ADSPI,plot(interval, steps,
+	main= "Average Daily Activity",
+	xlab= "5-minute interval (a day)",
+	ylab= "Steps Average",
+	col= "magenta",
+	type= "l"
+	))
+```
+
+### 3.2 Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r max Interval, echo=TRUE}
+MAXint <- ADSPI$interval[ADSPI$steps==max(ADSPI$steps)]
+```
+
+The 5-minute interval, on average across all the days in the dataset, that contains the maximum number of steps is `r MAXint`.
+
+## **4. Imputing missing values**
+
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+### 4.1 Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r number of NAs, echo=TRUE}
+TNNA <- nrow(AMD)-sum(complete.cases(AMD))
+```
+
+The total number of missing values in the dataset is `r TNNA`.
+
+
+### 4.2 Devise a strategy for filling in all of the missing values in the dataset. The strategy uses the mean for that 5-minute interval.
+
+The strategy is split the oroginal data set into one dataset with the "complete.cases" and another dataset with the "NA" cases. Then I replace NAs with the proper average of steps matching the interval number.
+
+### 4.3 Create a new dataset (AMDiNA) that is equal to the original dataset but with the missing data filled in.
+
+```{r filling missings, echo=TRUE}
+TNNA <- nrow(AMD)-sum(complete.cases(AMD))
+CCDS <- AMD[complete.cases(AMD),]
+NADS <- AMD[!complete.cases(AMD),]
+NADS$steps <- ADSPI[ADSPI$interval %in% NADS$interval,2]
+AMDiNA <- rbind(CCDS,NADS)
+AMDiNA <- AMDiNA[order(as.integer(row.names(AMDiNA))),]
+```
+
+### 4.4 Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r histogram 2, fig.height= 4}
+TSPD2 <- aggregate(steps~date,data= AMDiNA,FUN= sum)
+with(TSPD2,hist(steps,
+	main= "Histogram for Total Steps per day (filling missings)",
+	xlab= "Total # Steps/day",
+	border= "blue",
+	col= "green",
+	breaks= 5))
+meanTSPD2 <- mean(TSPD2$steps,na.rm = TRUE)
+medianTSPD2 <- median(TSPD2$steps,na.rm = TRUE)
+```
+
+The mean of the total number of steps taken per day (inputting missing data) is `r meanTSPD2` and the median o of the total number of steps taken per day (inputting missing data) is `r medianTSPD2`. By inputting missing data, the median becomes equal than the mean.
+
+## **5. Are there differences in activity patterns between weekdays and weekends?**
+
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+### 5.1 Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r week Factor, fig.height= 4}
+AMDiNA$FacWeek <- as.factor(ifelse(weekdays(AMDiNA$date) == "Sunday" | weekdays(AMDiNA$date) == "Saturday","weekend","weekday"))
+```
+
+### 5.2 Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{r weekday vs weekend, fig.height= 7}
+ADSPINAWD <- aggregate(steps~interval,data= subset(AMDiNA,AMDiNA$FacWeek == "weekday"),FUN= mean)
+ADSPINAWE <- aggregate(steps~interval,data= subset(AMDiNA,AMDiNA$FacWeek == "weekend"),FUN= mean)
+ADSPINAWD$FacWeek <- "weekday"
+ADSPINAWE$FacWeek <- "weekend"
+ADSPINAW <- rbind(ADSPINAWD,ADSPINAWE)
+library(lattice)
+xyplot(steps~interval|FacWeek, data= ADSPINAW, xlab= "5-minute interval (a day)", ylab= "Steps Average", layout= c(1,2), type= "l")
+```
+
